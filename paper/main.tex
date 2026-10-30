@@ -16,6 +16,9 @@
 \usepackage{mathtools}
 \usepackage[OT1]{fontenc}
 
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
 \def\vTheta{{\bm{\Theta}}}
 \def\vPhi{{\bm{\Phi}}}
 \newcommand{\trainloss}{\mathcal{L}_{\sS}}
@@ -29,7 +32,7 @@
 % Anonymous submission
 \author{\name Viktor Vesel\'{y} \email v.vesely@student.rug.nl \\
 \addr University of Groningen
-} 
+}  
 
 \newcommand{\fix}{\marginpar{FIX}}
 \newcommand{\new}{\marginpar{NEW}}
@@ -43,27 +46,37 @@
 \maketitle
 
 \begin{abstract}
-    Double descent describes the non-monotonic generalization behavior of neural networks as model capacity or training time increases. In this work, we identify two distinct mechanisms underlying model-wise double descent: feature-learning double descent (FLDD) and frozen-kernel double descent (FKDD). We show that FLDD arises when neural networks learn features that accelerate the fitting of noisy training labels, leading to a transient deterioration in generalization. In contrast, FKDD emerges from the slow fitting of residual errors along small-eigenvalue modes of the empirical neural tangent kernel, which transfer poorly to unseen data. We distinguish these mechanisms through controlled comparisons between feature-learning and frozen-kernel dynamics and introduce a sample-level measure of how feature learning facilitates noise fitting. Through targeted feature-learning ablations, we identify training samples responsible for forming noise-fitting features and demonstrate that suppressing their contribution to feature learning reduces the early double-descent peak without preventing the model from fitting those samples.
 \end{abstract}
 
 \section{Introduction}
 
+Model-wise double descent challenges the expectation that increasing capacity beyond interpolation necessarily harms generalization. As models grow, validation error can decrease, peak near interpolation, and decrease again despite fitting the training noise. Two streams of literature seek to explain this curve: frozen-kernel analyses of the instability of interpolation, and empirical studies of deep networks that learn their representations. Their common target suggests a common mechanism; we show that the same curve shape can arise from two distinct mechanisms.
+
+Frozen-kernel explanations locate the peak in the amplification of noise by weakly constrained feature directions. Near interpolation, fitting residual errors along these directions requires large coefficients that can transfer poorly to unseen data; greater capacity can reduce this sensitivity \citep{bach2023highdimensionalanalysisdoubledescent,schaeffer2023doubledescentdemystifiedidentifying}. A finite-width extension allows features to change but assumes that the smallest nonzero eigenvalue of their gradient covariance remains comparable to its initial value, retaining a spectral link to initialization \citep{singh2022phenomenologydoubledescentfinitewidth}. More recently, a theory accommodating evolving kernels also recovers double descent through a frozen-kernel specialization \citep{litman2026theorygeneralizationdeeplearning}. These explanations describe how noise is fitted within an available representation.
+
+Empirical deep-learning studies instead observe double descent as the representation itself changes with training and model width. Analyses of learned feature neighborhoods associate the second descent with improved separation of corrupted labels from class structure \citep{gu2024unravelingenigmadoubledescent}. This raises a complementary question about the peak: can learning the representation itself create the deterioration in generalization? Resolving this question distinguishes a peak caused by feature formation from the interpolation instability described by frozen-kernel theory.
+
+Learning features that facilitate noise fitting provides a candidate mechanism for this empirical peak. The closest work characterizes a transition from signal learning to memorization of sample-specific noise in a two-layer convolutional network \citep{pmlr-v267-han25c}. Its focus is the evolution of signal and noise learning during optimization. Our focus is how such feature changes generate a nonmonotonic generalization curve across model widths, which samples induce them, and whether suppressing their feature-learning contribution reduces the peak while preserving their fit. Related observations of clean- and noisy-label learning in epoch-wise double descent further motivate distinguishing the progress of noise fitting from its consequences across model sizes \citep{TomokiKUBO2025}.
+
+We identify two distinct mechanisms of model-wise double descent within the same task and architecture. On MNIST and CIFAR-10 with label corruption, \emph{feature-learning double descent} (FLDD) arises earlier as learned features accelerate noise fitting, while \emph{frozen-kernel double descent} (FKDD) emerges at longer horizons through slowly learned, weakly constrained directions. Matched nonlinear and frozen-feature models distinguish the mechanisms. Freezing trained features and evaluating their finite-time kernel dynamics reveals a later FKDD peak alongside the existing FLDD peak (Figure~\ref{fig:double-dd-showcase}). This connects the two literature streams through distinct mechanisms that can coexist, rather than treating their explanations as interchangeable.
+
+We test the feature-learning mechanism by intervening on the samples that drive noise-fitting feature changes. We attribute these changes to individual examples, which may be clean or noisy, and selectively disable their contribution to feature learning. The selected examples remain trainable through a readout, preserving the ability to fit them. The resulting reduction in the peak links FLDD to the formation of noise-fitting features and provides a targeted experimental test of the proposed mechanism.
+
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.9\columnwidth]{../showcase_of_double_dd.png}
-    \caption{Showcase of two distinct model-wise double descents happening at a different place for the same task, architecture, data ordering, learning rates, amount of learnable parameters. The lower part of the plot shows the early Feature Learning double descent, the upper part of the plot shows the later frozen kernel double descent. Two distinct mechanims give rise to each, see the text for full explanation.}
+    \caption{Two mechanisms of model-wise double descent for the same task and architecture. The lower part shows the earlier feature-learning double descent; the upper part shows the later frozen-kernel double descent revealed by fixed-feature continuation. The peaks occur at different widths and training horizons, separating the effect of feature formation from the slow fitting of kernel modes.}
     \label{fig:double-dd-showcase}
 \end{figure}
 
 \subsection{Contributions}
 
-Focusing on MNIST and CIFAR10.
+Our contributions are twofold:
 
 \begin{itemize}
-    \item \textbf{(C1) There are two double descents} We identify for each deep architecture and a task there are two double desents. One that happens sooner (epochs and widths) due to feature learning accelerating the learning of a noise. Second happening much later (with epochs) that happens much later due to slow learning modes (define by the smallest non-zero eigenvalue of the empirical ntk) producing large parameters and transfering badly on validaiton. 
+    \item \textbf{(C1) Identifying two distinct mechanisms of model-wise double descent.} We distinguish FLDD from FKDD through matched feature-learning ablations and demonstrate their coexistence through frozen-kernel dynamics evaluated at trained checkpoints.
 
-    \item \textbf{(C2) Identification of feature learning double descent mechanism} We propose and test a mechanism for the rise of the feature learning double descent to be a formation of features which aid with learning noise. We identify samples that cause these features to form and disable feature learning for them (but the model is still being able to fit them) we observe a significant drop on the double desent peak. 
-
+    \item \textbf{(C2) Identifying and intervening on the feature-learning mechanism.} We derive sample-level scores for feature changes that facilitate noise fitting and reduce the FLDD peak by selectively disabling these changes while preserving the ability to fit the selected samples.
 \end{itemize}
 
 \section{Background}
@@ -74,15 +87,16 @@ We define $\vtheta_{n,p} \in \sR^{p}$ to be $p$ parameters of a neural network $
 
 We train our models with the plain stochastic gradient descent for random batches $\sB \subset \sS$ and a constant learning rate $\eta$, yielding the update rule $\theta_{t + 1} = \theta{t} + \eta \nabla_{\theta_t} \batchloss(\theta_t)$.
 
-To induce double descent in classification tasks, we introduce label noise at a rate $\eta \in [0,1]$. Before training, we select a fraction $\eta$ of the training samples uniformly at random and replace each selected label with a label drawn uniformly from the remaining $d_y - 1$ classes for classification or drawn uniformly from other samples otputs for regression. Both the selected samples and their corrupted labels remain fixed throughout training, while the test labels remain unchanged.
+To induce double descent in classification tasks, we introduce label noise at a rate $\xi \in [0,1]$. Before training, we select a fraction $\xi$ of the training samples uniformly at random and replace each selected label with a label drawn uniformly from the remaining $d_y - 1$ classes for classification or drawn uniformly from other samples otputs for regression. Both the selected samples and their corrupted labels remain fixed throughout training, while the test labels remain unchanged.
 
 \subsection{Taylor approximation of the SGD learning dynamics}
 
 
-\paragraph{Definitions} We follow the standard calculus notation for stochastic gradient descent on a training batch  $\sB \subset \sS$ 
+\paragraph{Definitions}
+We examine the change in loss induced by an SGD update on a training batch $\sB \subset \sS$. To distinguish the contribution of the current tangent features from that of their evolution, we express the update in terms of output gradients and parameter Jacobians. Unless stated otherwise, quantities below are evaluated at the current parameters $\vtheta_t$, with this dependence suppressed for readability.
 
 \begin{align*}
-    \vb \coloneqq (f_\vtheta(\vx_0): \ldots : f_\vtheta(\vx_{|\sB|})), \quad \vx_i \in \sB  \quad & \text{Batch outputs' concatenation;} \\
+    \vb \coloneqq (f_\vtheta(\vx_1): \ldots : f_\vtheta(\vx_{|\sB|})), \quad \vx_i \in \sB  \quad & \text{Batch outputs' concatenation;} \\
     \vg_\sB \coloneqq \nabla_\vb \batchloss \quad & \text{Output training gradient;}\\
     \mJ_{\sB} \coloneqq \nabla_\theta \vb \quad &  \text{Jacobian of batch otuputs;}\\
     \vp_\sB \coloneqq  \mJ^\top_{\sB} \vg_\sB  \quad & \text{Parameter training gradient for the batch.}\\
@@ -90,28 +104,91 @@ To induce double descent in classification tasks, we introduce label noise at a 
 \end{align*}
 
 
-\paragraph{Feature learning identifications} We work with the following second taylor approximation of the traing loss change $\Delta \trainloss$ for the actual SGD step
+\paragraph{Local loss dynamics}
+For the update $\vtheta_{t+1} = \vtheta_t - \eta\vp_\sB$, we define the batch-loss change as $\Delta\batchloss \coloneqq \batchloss(\vtheta_{t+1}) - \batchloss(\vtheta_t)$. We approximate this change by a second-order Taylor expansion along the straight parameter-space path of the update. The update direction is held fixed along this path; the dots denote directional derivatives evaluated at $\vtheta_t$. The resulting approximation separates the first-order change from two contributions to the second-order change:
 \begin{align}
-    \Delta \trainloss &= \sum_{\sB \subset \sS} \Delta \batchloss \\
     \Delta \batchloss &\approx \Delta t \dot{\batchloss} + \frac{(\Delta t)^2}{2} \ddot{\batchloss} \label{eq:taylor-approx} \\
     \dot{\batchloss} &= -\vg^\top_\sB \mJ_{\sB} \mJ^\top_{\sB} \vg_\sB \\
-    \ddot{\batchloss} &= \underbrace{\vp_\sB^\top \mJ^\top_\sB (\nabla^2_f \trainloss) \vp_\sB }_{\text{Loss curvature}} + \underbrace{\vp_\sB^\top \left( \sum^{d_x}_{i} (\vg_\sB)_i (\nabla^2_\vtheta f)_i \right) \vp_\sB }_{\text{Feature-learning curvature}}
+    \ddot{\batchloss} &= \underbrace{\vp_\sB^\top \mJ^\top_\sB (\nabla^2_f \batchloss) \mJ_\sB \vp_\sB }_{\text{Loss curvature}} + \underbrace{\vp_\sB^\top \left( \sum_{i=1}^{|\sB|d_y} (\vg_\sB)_i \nabla^2_\vtheta b_i \right) \vp_\sB }_{\text{Feature-learning curvature}}
 \end{align}
-with the time step being equal to the learning rate $\Delta t = \eta$. However, later we show that the approximation in Equation~\ref{eq:taylor-approx} is not numerically sufficient due to the loss changing non-linearly across the fixed path of the SGD update, more on that in Appendix~\ref{ap:taylor-integrated}. The derivation of the terms is included in Appendix~\ref{ap:taylor-derivation}. Second order taylor approximation is the minimal order sufficient to explicitly identify the feature learning effect. Notice that the feature leanring term is precisely 0 with the frozen kernel models which gives us a way to naturally define what feature learning is.
+Here the step length equals the learning rate, $\Delta t = \eta$. The first-order term describes descent through the current tangent features. At second order, the loss-curvature term accounts for curvature of the loss with respect to the model outputs, whereas the feature-learning curvature term depends on the second derivatives of those outputs with respect to the parameters. Second order is thus the lowest order at which output curvature appears explicitly in this local expansion. Appendix~\ref{ap:taylor-derivation} provides the derivation, and Appendix~\ref{ap:matrix-free} provides the implemented matrix-free versions of the presented terms. 
 
-We follow a loose definition of feature learning, where the current task and architecture pair cause the Jacobian to substantially diverge from its initial value $\nabla_\vtheta f(\vtheta_0)$, the feature learning term can then be used to capture the instantenous effect of the change in the jacobian on the training/test loss. 
+Equation~\ref{eq:taylor-approx} is a local approximation. Its accuracy over a finite SGD step depends on how the directional derivatives vary along the update path; a second-order expansion at the starting point need not adequately capture the full loss change. This motivates integration along the update path, as discussed in Appendix~\ref{ap:taylor-integrated}.
 
-\paragraph{Transfer on the validation}
+For a frozen kernel models the feature-learning curvature term vanishes, explicitly identifying the difference between feature learning and frozen kernel models. The feature learning term misses kernel changes that are locally independent to the loss changes.  To complement this directional quantity, we measure changes in the training kernel over the course of optimization. We track the training kernel $K_t=J_{\sS}(\vtheta_t)J_{\sS}(\vtheta_t)^\top$ using two relative Frobenius-norm metrics: its drift from initialization and its change since the previous measurement $t^-$,
+\begin{align}
+    D_t &= \frac{\|K_t-K_0\|_F}{\|K_0\|_F}, &
+    S_t &= \frac{\|K_t-K_{t^-}\|_F}{\|K_0\|_F}.
+\end{align}
+The first metric measures cumulative drift from initialization, while the second measures change between successive measurements.
 
-Equations for the first order transfer metric definition per sample
 
+\paragraph{Transfer to validation loss}
+The effect of a training update on validation loss is determined, to first order, by the alignment between the batch and validation parameter gradients. Let $\vg_\sQ$ denote the gradient of $\genloss$ with respect to the concatenated validation outputs, and let $\mJ_\sQ$ denote their parameter Jacobian. Along the same SGD update path, the chain rule gives 
+\begin{align}
+    \dot{\genloss}
+    &= -\bigl(\mJ_\sQ^\top\vg_\sQ\bigr)^\top\vp_\sB
+     = -\vg_\sQ^\top K_{\sQ\sB}\vg_\sB.
+    \label{eq:validation-transfer}
+\end{align}
+To obtain interpretable scalar metrics for each training sample's contribution to validation learning, we separate its output-gradient magnitude from its transfer to validation. Let $\vg_\sB^{(i)}$ be its block of the batch output gradient and $(\mJ_\sB^\top)^{(i)}$ the corresponding block of the transposed Jacobian. Writing $\hat{\vg}_\sB^{(i)} = \vg_\sB^{(i)}/\|\vg_\sB^{(i)}\|_2$, with $\hat{\vg}_\sB^{(i)}=0$ when the gradient vanishes, we define the \emph{Train push} $P_i$ and \emph{Transfer} $T_i$ through the decomposition
+\begin{align}
+    \dot{\genloss}
+    &= -\sum_{i=1}^{|\sB|}
+    \underbrace{\|\vg_\sB^{(i)}\|_2}_{P_i\;\text{(Train push)}}
+    \underbrace{
+        \vg_\sQ^\top\mJ_\sQ
+        (\mJ_\sB^\top)^{(i)}
+        \hat{\vg}_\sB^{(i)}
+    }_{T_i\;\text{(Transfer)}} = -\sum_{i=1}^{|\sB|} P_i T_i.
+    \label{eq:per-sample-transfer}
+\end{align}
+Train push $P_i$ measures the magnitude of the sample's output gradient, while Transfer $T_i$ measures the alignment of the corresponding parameter direction with the validation gradient. Positive $T_i$ therefore contributes to a first-order decrease in validation loss, and negative $T_i$ contributes to an increase. This decomposition separates how strongly a sample drives the update from how beneficial that direction is for validation performance.
 
 \subsection{Kernel regression}
 
-Formalize the kernel regression quickly here and then just reuse it in the later sections
+We use finite-time kernel regression to evaluate how validation performance evolves when the current features remain fixed. At a chosen checkpoint, we freeze their parameter Jacobian, obtaining an affine model of subsequent parameter changes. We evaluate the evolution of this model under full-batch gradient descent on a squared-error objective. This allows us to explore long training horizons without explicitly simulating every update, including the slow learning of kernel modes with small eigenvalues. Computational details are given in Appendix~\ref{ap:matrix-free}.
+
+We apply this continuation both at initialization and after training, across model widths and random seeds. Freezing at initialization isolates frozen-kernel double descent (FKDD), while freezing a trained network that already exhibits feature-learning double descent (FLDD) allows us to examine whether a later FKDD develops alongside it. These continuations separate the effects of continued fitting with fixed features from those of further feature learning.
+
+For regression, we linearize the model outputs and use mean squared error. For classification, we linearize the softmax probabilities and fit the labels with Brier loss, reporting validation error averaged over output coordinates. The classification continuation therefore describes squared-error learning in the affine probability model, rather than continued cross-entropy training of the original network.
+
+\subsection{Frozen Kernel Double Descent mechanism}
+
+The mechanisms underlying frozen-kernel double descent have been studied extensively. Here, we follow the three-factor account of \citet{schaeffer2023doubledescentdemystifiedidentifying}, applied to the frozen Jacobian as the feature matrix. The mechanism combines small nonzero eigenvalues of the empirical tangent kernel, residual error from noise or model misspecification aligned with the corresponding training modes, and validation features that amplify the resulting estimation error. Fitting this residual along weakly constrained directions requires large parameter coefficients, which can produce large prediction errors on validation samples. We refer to double descent arising through this mechanism as frozen-kernel double descent (FKDD).
+
+This account describes FKDD through spectral modes, whereas our proposed feature-learning double descent (FLDD) mechanism focuses on how individual training samples drive changes in the features. Ridge regularization mitigates the FKDD mechanism by suppressing the amplification associated with small eigenvalues.
 
 \section{Methodology}
 
+\subsection{Specification of the double descent curve}
+\label{sec:dd-specification}
+
+Model-wise double descent traces a reversal in the benefit of increasing
+model capacity: validation loss initially falls, rises to a peak, and
+then falls again as the model grows wider. To study how learning changes
+across this curve, we summarize its geometry at a fixed training horizon
+$T$ by four ordered widths,
+\begin{equation}
+    \mathcal{D}_T \coloneqq
+    (w_{\mathrm{s}},w_-,w_\star,w_+),
+    \qquad w_{\mathrm{s}}<w_-<w_\star<w_+.
+    \label{eq:dd-landmarks}
+\end{equation}
+Here $w_{\mathrm{s}}$ is the smallest width considered, $w_-$ marks the
+validation-loss minimum before the peak, $w_\star$ the peak itself, and
+$w_+$ the minimum reached beyond it within the explored range.
+Together, these landmarks place the deterioration in generalization
+between two reference models with lower validation loss, while retaining
+the starting point of the width sweep.
+
+This four-point description gives us a common language for comparing 
+learning dynamics across the curve and asking how an intervention changes
+its shape. We identify the landmarks from the final validation losses,
+requiring a clearly distinguished peak with lower loss on either side.
+The numerical identification procedure is given in
+Appendix~\ref{ap:dd-identification}.
+ 
 
 \subsection{Identification of two Double Descent mechanisms}
 
@@ -122,43 +199,185 @@ Formalize the kernel regression quickly here and then just reuse it in the later
 \end{equation}
 where $\vtheta_t$ will be frozen and $\vw$ will be updated freely. Substituting $\vtheta_0$ and learning showcases that the double descent dissapears for the frozen kernel regime (show a figure here).
 
-To 
+To further prove the distinction of the two DD mechanims we can apply their respective interventions to each other and show that the DD peak does not dissapear.
+
+(this section maybe needs to be moved somewhere I am just putting it here as a notes) 
+Applying the FKDD intervention (regularization of the kernel) to the FLDD:
+- so there is no one to one correspondence of the ridge regression to the SGD training.
+- We have tried sofar the classical L2 penalty of the weights and sweeping the regularization strength we have found that
+- With strong regularization the FLDD peak dissapears, however, not because the intervention would work but because the strong L2 penalty forced the training into a lazy mode (almost frozen) this is also confirmed in \citet{repasky2023neuralsteincriticsstaged} and \citet{Lewkowycz2020}, and we empirically show the kernel movement to be substantially smaller for those cases (reference a figure)
+- With weak regulariztion the feature learning regime stays and the FLDD peak remains (reference a figure)
+
+Applying the FLDD intervention to the frozen kernel regime would do nothing by definiton since we only disable the feature learning which is already disabled there.
+
 
 \paragraph{Showing the coexistence} The coexistence of the two DDs for the same full feature learning run is this:
 - for the tasks and architectures presented here it is computationally feasible to empirically observe the FKDD in the actual feature learning run since as seen from the figure the occurance of FKDD happens in very distant epochs (around $5 \cdot 10^{9}$)
-- thus we based the coexistence of the two DDs based on the assumption that the movement of the kernel (feature learning) slows down as the training progresses (which is not theoratically guaranteed but it is a common empirical behavior \citep{atanasov2021neuralnetworkskernelleaners})
+- thus we based the coexistence of the two DDs based on the assumption that the movement of the kernel (feature learning) slows down as the training progresses (which is not theoratically guaranteed but it is a common empirical behavior \citep{atanasov2021neuralnetworkskernellearners})
 - Using this assumption we can freeze the actual learned model $\vtheta_T$ by again using Equation \ref{eq:frozen-kernel} and using kernel regression to display the validation error given the frozen kernel assumption
 
-\subsection{Feature learning Double Descent Mechanism}
+\subsection{Feature-Learning Double Descent Mechanism}
+\label{sec:fldd-mechanism}
 
-In frozen kernel regime the peak is caused by the following conditions: the empirical ntk contains small non-zero eigenvalues AND that eigmode has some residual power left (gradient wants to fit it) AND  that eigenmode transfers harmfully on the validation. The intuitve mechanism is then that in order to fit the small eigenmodes it requires large coefficients, which transfer very poorly on the validation (since they are taylord for the noise). The frozen kernel regime operates in the eigenmodes, our hypothesis about the FL DD operates from the samples' perspective. We call this double descent FKDD
+We hypothesize that feature learning can give rise to double descent by
+creating representations that make label noise easier to fit. The proposed
+mechanism involves three conditions: (i) updates induced by some training
+samples create features that facilitate noise fitting; (ii) the network
+has sufficient capacity to fit the noise and does so rapidly once these
+features emerge; and (iii) fitting the noisy samples transfers poorly to
+validation data. We refer to double descent associated with this mechanism
+as \emph{feature-learning double descent} (FLDD).
 
-We hypothesize that the Fl DD is caused by some training samples constructing features which make learning noise samples easier, conditions: i) there will be samples which create features which are beneficial for the noise AND ii) the network has sufficient capacity to fit the noise (and it will be fitted quickly) AND iii) the noise samples will transfer VERY poorly to the validation. We call this double descent FLDD.
+\paragraph{Feature changes that facilitate noise fitting.}
+To formalize condition~(i), let $\sL\subseteq\sS$ denote the noisy samples
+in the training dataset. Along the straight-line path of an SGD
+update, $\dot{\vtheta}=-\vp_\sB$, the quantity
+$\vg_\sL^\top J_\sL\vp_\sB$ measures the instantaneous rate of decrease
+of the noisy-sample loss. Its change separates into contributions from
+the output gradients and the features:
+\begin{equation}
+    \frac{d}{dt}\bigl(\vg_\sL^\top J_\sL\vp_\sB\bigr)
+    = \underbrace{\dot{\vg}_\sL^\top J_\sL\vp_\sB}_{\text{output-gradient change}}
+    + \underbrace{\vg_\sL^\top\dot{J}_\sL\vp_\sB}_{\text{feature change}}
+    + \underbrace{\vg_\sL^\top J_\sL\dot{\vp}_\sB}_{=\,0\;\text{along a fixed SGD step}}.
+\end{equation}
+Dots denote time derivatives along the straight-line SGD step, evaluated
+at its start. The update direction $\vp_\sB$ is fixed during this step,
+so $\dot{\vp}_\sB=0$.
 
-Now formulating i) ii) and iii) exactly
-
-i) comes from the following property. Let $\sL \subset \sB$ be the noise samples in the current training batch. We can measure how easily can the noise be learned under the current features/jacobian lets call this property $l(\vtheta)$:
+We isolate the feature contribution and attribute it to the samples
+providing the update. Writing $\vp_i=J_i^\top\vg_i$ and
+$\vp_\sB=\sum_{i\in\sB}\vp_i$, define
 \begin{align}
-    l(\vtheta) &= \vg^\top_\sL J_\sL \vp_\sB \\
-    \dot{l}(\vtheta) &=  \underbrace{\dot{\vg}^\top_\sL J_\sL \vp_\sB}_\text{Changes in the loss} + \underbrace{\vg^\top_\sL \dot{J}_\sL \vp_\sB}_\text{Changes in the features} + \underbrace{\vg^\top_\sL J_\sL \dot{\vp}_\sB}_\text{SGD does not change the direction in one step thus $0$}
+    H_{\mathrm{model},\sL}
+    &\coloneqq \sum_{j\in\sL}\sum_{a=1}^{d_y}
+        (\vg_j)_a\nabla_\vtheta^2 f_{\vtheta,a}(\vx_j), \\
+    \dot{J}_\sL^\top\vg_\sL
+    &= -H_{\mathrm{model},\sL}\vp_\sB, \\
+    \vg_\sL^\top\dot{J}_\sL\vp_\sB
+    &= \sum_{i\in\sB}l_i,
+    \qquad l_i\coloneqq-\vp_i^\top H_{\mathrm{model},\sL}\vp_\sB.
+    \label{eq:fldd-sample-contribution}
 \end{align}
-we are only interested how much does the feature learning influence the ease of noise fitting (the middle term lets call it $h_i$) .
+By symmetry of the Hessian, $l_i$ measures how the feature change induced
+by sample $i$ affects the rate of noise fitting along the batch update.
+The contributing sample may be clean or noisy; a positive $l_i$ indicates
+that its feature change facilitates noise fitting. The output gradients
+retain the original batch-loss normalization.
+
+We accumulate these contributions over training to obtain a score for
+each sample:
+\begin{equation}
+    C_i(T)=\sum_{\substack{t\text{ before horizon }T\\i\in\sB_t}}
+        \frac{(\Delta t_t)^2}{2}\,l_{i,t}.
+    \label{eq:fldd-cumulative-contribution}
+\end{equation}
+Here $t$ indexes SGD updates, $i$ identifies the same dataset sample
+across batches, and $l_{i,t}$ is evaluated at the start of the update.
+The factor $(\Delta t_t)^2/2$ weights the contribution according to the
+second-order expansion of the loss decrease over that step.
+
+% TODO: Formalize condition (ii), rapid noise fitting once capacity is sufficient.
+% TODO: Formalize condition (iii), harmful transfer of noise fitting to validation.
+
+\paragraph{Design for disabling feature learning per sample} \label{sec:disable-sample-feature-learning}
+
+In order to test our mechanism which attributes the FLDD to a feature learning mechanism of a specific group of samples, we need to come up with a specific mechanism that allows allows only subset of samples to do feture learning. Precisely, we seek a design that prevents a subset of training examples $\sF \subset \sS$ (lets call them frozen samples) not to infleunce the feature kernel of the neural network $f_\vtheta$.  Most elegant way is to use Equation \ref{eq:frozen-kernel} to implement a two pathway model where both the $f_\vtheta(\vx)$ term si allowed to change as well as the $\vw$ in the linear term $(\nabla_{\vtheta_0} f_{\vtheta_0}) \vw$. However, such model is unstable and does not converge (more about this and more designs are shown in the Appendix \ref{ap:disable-sample-feature-learning}).
+
+We have settled on a two pathway architecture design where the the frozen samples $\sF$ can only update the linear readout weights $\mW \in \sR^{(\lvert \vh(\vx) \rvert + \lvert \vx \rvert ) \times d_y}$ from the concatenation of all the network's hidden activations $\vh(\vx)$ and the input itself $\vx$:
+\begin{equation} \label{eq:fl-ablatoion-mixed}
+    \bar{f}_{\vtheta, \mW} (\vx) = f_\vtheta(\vx) + (\vh(\vx) :  \vx) \mW,
+\end{equation}
+where the gradient for parameters $\vtheta$ is stopped for the frozen samples $\vx \in \sF$. This allows very precisely validate our mechanism.
 
 
-We are not claiming that these are the sufficient conditions for the FLDD to arise, we acknowledge its depedence also on other factors such as noise percentage, optimizers, batch size, and learning rate (citations here). We merely identify the feature learning contributon of the DD peak. This mechanism can be validated using the following ablation:
--  
 
+\paragraph{Testing the mechanism.}
+We do not claim that conditions~(i)--(iii) are sufficient for FLDD to arise.
+Its emergence also depends on the noise fraction, optimizer, batch size,
+and learning rate.
+% TODO: Add citations for these dependencies.
+Our aim is to identify the feature-learning contribution to the peak.
+Algorithm~\ref{alg:fldd-intervention} tests this contribution by disabling
+feature learning for samples with the largest cumulative scores, while
+preserving the model's ability to fit them through the intervention in
+Section~\ref{sec:disable-sample-feature-learning}. A reduction in the
+validation-loss peak would support the proposed mechanism.
+
+\begin{algorithm}[htbp]
+\caption{FLDD intervention algorithm}
+\label{alg:fldd-intervention}
+\begin{algorithmic}[1]
+\Require Width sweep $\mathcal{W}$, training horizon $T$, intervention size $n$
+\Ensure Baseline and intervened validation-loss curves
+\For{each width $w\in\mathcal{W}$}
+    \State Train the baseline model to horizon $T$, accumulating $C_i(T)$ for each sample
+    \State Select the $n$ samples with the largest $C_i(T)$
+    \State Retrain from the same initialization, disabling feature learning for the selected samples
+    \State Keep the data order, training horizon, and all other training settings fixed
+    \State Record the baseline and intervened validation losses
+\EndFor
+\State Compare the two curves across widths, assessing the reduction in the double-descent peak
+\end{algorithmic}
+\end{algorithm}
 
 
 \section{Experiments}
 
+\clearpage
 
 \bibliography{tmlr-template/tmlr}
 \bibliographystyle{tmlr-template/tmlr}
 
+\clearpage
+
 \appendix
 
 \section{Appendix}
+
+\subsection{Identification of the double descent landmarks}
+\label{ap:dd-identification}
+
+We extract the four landmarks from the validation-loss curve at a fixed
+training horizon, using Algorithm~\ref{alg:dd-identification}. Let
+$\ell_i$ denote the final validation loss at width $w_i$, averaged over
+seeds when applicable. Smoothing suppresses small fluctuations so that
+the selected peak reflects the broader shape of the curve.
+
+\begin{algorithm}[htbp]
+\caption{Four-point identification of double descent}
+\label{alg:dd-identification}
+\begin{algorithmic}[1]
+\Require Validation losses $\ell_1,\ldots,\ell_m$ at widths $w_1<\cdots<w_m$, $m\geq4$
+\Ensure Landmarks $\mathcal{D}_T$, if a sufficiently distinct peak is present
+\State Smooth $\ell$ with a Gaussian filter to obtain $\widetilde\ell$
+\State Set the contrast threshold $\delta\gets 0.1\lvert\widetilde\ell_1\rvert$
+\State Identify the most prominent peak $i_\star$ of $\widetilde\ell$ with prominence at least $\delta$
+\If{$i_\star$ exists, is dominant, and $3\leq i_\star\leq m-1$}
+    \State Select $i_-$ minimizing $\ell_i$ over $1<i<i_\star$
+    \State Select $i_+$ minimizing $\widetilde\ell_i$ over $i_\star<i\leq m$
+    \If{the smoothed peak exceeds both selected minima by at least $\delta$}
+        \State \Return $\mathcal{D}_T=(w_1,w_{i_-},w_{i_\star},w_{i_+})$
+    \EndIf
+\EndIf
+\end{algorithmic}
+\end{algorithm}
+
+We use Gaussian bandwidth $\sigma=\min\{3,\max\{0.1,m/30\}\}$,
+measured in grid positions, with constant extension at the boundaries.
+A peak's prominence is its height above the higher of the two surrounding
+valley floors, each delimited by a higher peak or the boundary of the
+curve. A peak is \emph{dominant} if every other peak with prominence at
+least $\delta$ has less than half its prominence. Ties between minima
+are resolved in favor of the smaller width. The pre-peak minimum uses
+the observed losses, while the post-peak minimum and both contrast
+comparisons use the smoothed curve. Curves that do not meet the selection
+criteria remain unidentified.
+
+This criterion permits local fluctuations between landmarks and does not
+separately require a decrease from the starting width to the pre-peak
+minimum. The selected peak describes the validation-loss curve; relating
+it to an interpolation threshold requires training-loss evidence.
 
 \subsection{Derivation of the 2nd order taylor loss changes}
 \label{ap:taylor-derivation}
@@ -187,12 +406,12 @@ We are not claiming that these are the sufficient conditions for the FLDD to ari
     && \text{First-order validation change} \\
     \dot{\genloss}
     &= -\sum_i
-    \underbrace{\lVert g_S^{(i)} \rVert}_{\mathrm{train\_push}}
+    \underbrace{\lVert g_S^{(i)} \rVert}_{P_i\;\text{(Train push)}}
     \underbrace{
         g_Q^\top J_Q
         (J_S^\top)^{(i)}
         \hat{g}_S^{(i)}
-    }_{\mathrm{transfer}}
+    }_{T_i\;\text{(Transfer)}}
     && \text{Per-sample push and transfer} \\
     \dot{\genloss}
     &= \nabla_\theta \genloss(\theta)^\top
@@ -270,8 +489,30 @@ We are not claiming that these are the sufficient conditions for the FLDD to ari
     \nonumber
 \end{align}
 
-\subsection{Hessian and Jacobian free formulation}
+\subsection{Different designs of disabling feature learning on some samples}
+\label{ap:disable-sample-feature-learning}
+
+Training head only
+
+Training a tangent model
+
+\subsection{Matrix free formulations}
 \label{ap:matrix-free}
+
+\paragraph{Kernel regression}
+We evaluate the finite-time gradient-descent solution through a spectral filter, approximated using a matrix-free Golub--Kahan reduction of the loss-normalized Jacobian. Jacobian-vector and vector-Jacobian products construct the reduced problem without explicitly forming the Jacobian or kernel matrices. We apply the finite-time filter to the singular values of the reduced problem without ridge regularization.
+
+
+With respect to the kernel changes:
+We estimate both quantities using the same fixed Rademacher probes $\vr_1,\ldots,\vr_R$:
+\begin{align}
+    \widehat D_t
+    &= \sqrt{\frac{\sum_{r=1}^{R}\|(K_t-K_0)\vr_r\|_2^2}
+                        {\sum_{r=1}^{R}\|K_0\vr_r\|_2^2}}, &
+    \widehat S_t
+    &= \sqrt{\frac{\sum_{r=1}^{R}\|(K_t-K_{t^-})\vr_r\|_2^2}
+                        {\sum_{r=1}^{R}\|K_0\vr_r\|_2^2}}.
+\end{align}
 
 \subsection{Multistep integrated taylor approximation} 
 \label{ap:taylor-integrated}

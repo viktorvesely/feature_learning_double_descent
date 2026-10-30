@@ -1,0 +1,107 @@
+\documentclass[10pt]{article}
+\usepackage[preprint]{tmlr-template/tmlr}
+\input{tmlr-template/math_commands}
+\usepackage{amssymb,graphicx,mathtools}
+\usepackage[OT1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\title{Two Mechanisms of Model-Wise Double Descent:\\Frozen Kernels and Feature Learning}
+\author{\name Viktor Vesel\'{y} \email v.vesely@student.rug.nl \\
+\addr University of Groningen}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+We propose that model-wise double descent can arise from two distinct, potentially coexisting mechanisms. Frozen-kernel double descent (FKDD) results from fitting residual components in weak kernel modes whose amplification harms generalization. Feature-learning double descent (FLDD) instead involves changes in representation that facilitate fitting label noise and transfer harmfully to unseen data. Our central claim is that these are separable sources of non-monotonic generalization across model size, rather than interchangeable explanations of a single peak. We propose a sample-level mechanism for FLDD and two ablations: freezing the entire Jacobian, and selectively blocking feature updates from samples that help noise fitting while retaining their training losses. This preliminary note introduces the distinction, the proposed mechanism, and the experiments designed to establish their connection.
+\end{abstract}
+
+\section{Claim and relation to existing work}
+\textbf{Model-wise double descent need not have a single mechanism.} At a fixed training budget, validation loss can decrease, increase, and decrease again as width grows. We distinguish a \emph{frozen-kernel} source of this behavior from a \emph{feature-learning} source. Both may operate in the same task and architecture family, at different widths or training times, and potentially overlap within the same width sweep. Their different width and time scales explain how an early feature-learning peak and a later frozen-kernel peak can arise in the same model family.
+
+Two strands of work motivate this distinction. Fixed-feature analyses explain double descent without representation learning: Bach~\cite{bach2023highdimensionalanalysisdoubledescent} studies linear regression with random projections. Learned-feature explanations instead emphasize noise fitting and changes in representation; Gu et al.~\cite{gu2024unravelingenigmadoubledescent} connect double descent to the learned feature space and separation of signal from noise. These strands are not a strict partition: Singh et al.~\cite{singh2022phenomenologydoubledescentfinitewidth} analyze finite-width networks through influence functions and Hessian spectra, while Litman and Guo~\cite{litman2026theorygeneralizationdeeplearning} develop a signal--noise kernel perspective that explicitly allows feature learning.
+
+Han et al.~\cite{pmlr-v267-han25c} provide a particularly close precursor: their analysis describes learning signal from clean samples followed by memorization of noise and degraded generalization. Our proposed contribution is more specific than the observation that feature learning can help memorize noise: \emph{to distinguish FLDD from FKDD as potentially coexisting model-wise phenomena, and to test FLDD by intervening on the samples responsible for noise-helpful feature changes}. This connects the dynamics of noise memorization to the width dependence of generalization and separates it from the frozen-kernel mechanism.
+
+\section{Two double-descent mechanisms}
+Let $\sS$ be the training set, $\sN\subset\sS$ its fixed label-corrupted subset, and $\sQ$ a clean validation set. For a sample set $\sA$, let $\vf_{\sA}$ concatenate its model outputs and define
+\begin{equation}
+ \mJ_{\sA}=\nabla_{\vtheta}\vf_{\sA},\qquad
+ \vg_{\sA}=\nabla_{\vf_{\sA}}\mathcal L_{\sA},\qquad
+ \mK_{\sA\sB}=\mJ_{\sA}\mJ_{\sB}^{\top}.
+\end{equation}
+For a batch $\sB$, SGD takes $\vtheta^+=\vtheta-\alpha\vp_{\sB}$, where $\vp_{\sB}=\mJ_{\sB}^{\top}\vg_{\sB}=\sum_{i\in\sB}\vp_i$ and $\vp_i$ is sample $i$'s contribution to the parameter gradient. All sample contributions retain the batch loss normalization.
+
+\paragraph{FKDD: amplification through weak modes.}
+With a fixed Jacobian, consider squared loss and an eigenpair $\mK_{\sS\sS}\vu_j=\lambda_j\vu_j$, $\lambda_j>0$. Under gradient flow, the contribution to validation predictions from the initial residual $\vr_0=\vy_{\sS}-\vf_{\sS}(0)$ is
+\begin{equation}
+ \Delta\vf_{\sQ}^{(j)}(t)
+ =\mK_{\sQ\sS}\vu_j
+ \frac{1-e^{-\lambda_j t}}{\lambda_j}
+ \vu_j^\top\vr_0.
+ \label{eq:fk}
+\end{equation}
+Time absorbs the loss normalization. FKDD arises when weak modes carry residual error and their eventual fitting transfers harmfully to validation. These modes require large coefficients and long training times. Their width-dependent amplification produces a peak that can emerge much later than FLDD.
+
+\paragraph{FLDD: feature changes that facilitate harmful noise fitting.}
+We propose that some training samples create features that make noisy targets easier to fit. At widths with sufficient capacity to fit the noise, this accelerates memorization and raises validation loss. At greater width, a representation that better separates signal and noise can reduce harmful transfer, producing the second descent. The mechanism combines three conditions: creation of noise-helpful features, sufficient capacity to fit noise, and harmful transfer of the fitted noise to validation. The samples creating these features can include both clean and corrupted samples.
+
+To identify their contribution, follow one fixed SGD direction, $\vtheta(\tau)=\vtheta-\tau\vp_{\sB}$. For the corrupted samples in the batch, write $\sN_{\sB}=\sN\cap\sB$. At the start of the step,
+\begin{align}
+ \mH_{\sN_{\sB}}^{\mathrm{feat}}
+ &=\sum_a(\vg_{\sN_{\sB}})_a\nabla_{\vtheta}^2(\vf_{\sN_{\sB}})_a,
+ \\[-2pt]
+ \frac{d^2\mathcal L_{\sN_{\sB}}}{d\tau^2}
+ &=\underbrace{\vp_{\sB}^{\top}\mJ_{\sN_{\sB}}^{\top}
+ \bigl(\nabla_{\vf_{\sN_{\sB}}}^2\mathcal L_{\sN_{\sB}}\bigr)
+ \mJ_{\sN_{\sB}}\vp_{\sB}}_{\text{Loss curvature}}
+ +\underbrace{\vp_{\sB}^{\top}\mH_{\sN_{\sB}}^{\mathrm{feat}}\vp_{\sB}}_{\text{Feature-learning curvature}}.
+ \label{eq:curvature}
+\end{align}
+The feature-learning term is zero for a frozen-Jacobian model. To express its sample-level meaning, define the instantaneous ease of noise fitting as $\ell_{\sN_{\sB}}=\vg_{\sN_{\sB}}^\top\mJ_{\sN_{\sB}}\vp_{\sB}$. The change in this quantity caused by changing the Jacobian along sample $i$'s update direction is
+\begin{equation}
+ D_{-\vp_i}^{\mathrm{feat}}\ell_{\sN_{\sB}}
+ =-\vg_{\sN_{\sB}}^\top
+ D_{\vp_i}\mJ_{\sN_{\sB}}
+ \vp_{\sB}
+ =-\vp_i^\top\mH_{\sN_{\sB}}^{\mathrm{feat}}\vp_{\sB}.
+ \label{eq:ease}
+\end{equation}
+Here $D^{\mathrm{feat}}$ holds the output gradient and the batch update direction fixed, isolating the change in features. Thus
+\begin{equation}
+ h_i=-\frac{\alpha^2}{2}\vp_i^\top\mH_{\sN_{\sB}}^{\mathrm{feat}}\vp_{\sB},
+ \qquad
+ \sum_{i\in\sB}h_i=
+ -\frac{\alpha^2}{2}\vp_{\sB}^\top\mH_{\sN_{\sB}}^{\mathrm{feat}}\vp_{\sB}.
+ \label{eq:help}
+\end{equation}
+Positive $h_i$ means that sample $i$'s update locally changes features in a direction that facilitates noise fitting. The factor $\alpha^2/2$ puts this contribution on the scale of the second-order loss change. We aggregate these contributions along training, using subdivided update paths to capture feature changes within a step. Harmful transfer is measured separately through the first-order validation effect of noise updates, $-\alpha\vg_{\sQ}^\top\mJ_{\sQ}\mJ_{\sN_{\sB}}^\top\vg_{\sN_{\sB}}>0$.
+
+\begin{figure}[t]
+ \centering
+ \includegraphics[width=0.57\linewidth]{../showcase_of_double_dd.png}
+ \caption{Two model-wise double descents at different widths and training times. The lower panel shows the early feature-learning peak; the upper panel shows the later frozen-kernel peak. The two regimes are displayed on a broken time axis. Colors indicate validation loss.}
+ \label{fig:motivation}
+\end{figure}
+
+\section{Two proposed ablations}
+\paragraph{1. Identify the distinction between FLDD and FKDD.}
+The first ablation tests whether the early and late double descents have different origins. Starting from the same initialization at each width, compare the feature-learning model with its frozen-Jacobian counterpart:
+\begin{equation}
+ \bar f(\vx;\vw)
+ =f_{\vtheta_0}(\vx)
+ +\mJ_{\vtheta_0}(\vx)\vw,
+ \qquad \vw_0=\vzero.
+\end{equation}
+Keep the task, corrupted labels, batch order, learning rate, and trainable parameter count matched within each width. At the feature-learning training budget, we predict an FLDD peak in the feature-learning model and its disappearance under freezing. Continuing frozen-kernel training then reveals the second, later DD as slow modes are fitted. The contrast identifies two distinct double descents: one depends on feature evolution, while the other arises with fixed features. Matched-loss training provides the direct comparison; long-time squared-loss kernel predictions resolve the slow-mode behavior analytically.
+
+\paragraph{2. Test the proposed FLDD mechanism.}
+The second ablation tests whether the FLDD peak is driven by samples creating features that help fit noise. Rank samples by their accumulated positive $h_i$ contribution at the FLDD peak width, averaged over seeds. Select a prescribed fraction of the positive contribution and reuse the same sample mask across widths. Retrain while disabling those samples' feature-learning updates but retaining their losses and their ability to learn through a fixed-feature pathway. The tangent implementation routes selected updates through the initial Jacobian; the mixed implementation blocks their hidden-layer gradients while retaining readout learning.
+
+The mechanism predicts that this targeted intervention reduces the FLDD peak while the selected samples can still be fitted. Equal-count random blocking tests the specificity of the identified feature creators; removing the same samples' learning contribution provides a comparison with excluding them altogether. Selected-sample training losses and extended training establish whether peak suppression persists when those samples are fitted. Together, the two ablations separate the existence of two DD mechanisms from the proposed explanation of FLDD.
+
+\paragraph{Research scope.}
+This preliminary note proposes the distinction and mechanism for noisy-label MNIST and CIFAR-10 width sweeps. The accompanying ablations are designed to establish how feature-mediated noise fitting and slow frozen-kernel modes produce distinct, potentially coexisting model-wise double descents.
+
+\bibliography{tmlr-template/tmlr}
+\bibliographystyle{tmlr-template/tmlr}
+\end{document}

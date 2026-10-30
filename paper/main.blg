@@ -1,0 +1,48 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main.aux
+The style file: tmlr-template/tmlr.bst
+Database file #1: tmlr-template/tmlr.bib
+Warning--empty booktitle in Lewkowycz2020
+You've used 10 entries,
+            2773 wiz_defined-function locations,
+            651 strings with 7245 characters,
+and the built_in function-call counts, 5112 in all, are:
+= -- 427
+> -- 378
+< -- 6
++ -- 126
+- -- 116
+* -- 429
+:= -- 787
+add.period$ -- 34
+call.type$ -- 10
+change.case$ -- 66
+chr.to.int$ -- 10
+cite$ -- 21
+duplicate$ -- 190
+empty$ -- 379
+format.name$ -- 132
+if$ -- 1067
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 3
+newline$ -- 61
+num.names$ -- 42
+pop$ -- 152
+preamble$ -- 1
+purify$ -- 56
+quote$ -- 0
+skip$ -- 187
+stack$ -- 0
+substring$ -- 119
+swap$ -- 27
+text.length$ -- 2
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 110
+warning$ -- 1
+while$ -- 35
+width$ -- 0
+write$ -- 136
+(There was 1 warning)

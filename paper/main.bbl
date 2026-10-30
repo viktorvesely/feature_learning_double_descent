@@ -1,8 +1,61 @@
-\begin{thebibliography}{0}
+\begin{thebibliography}{10}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Atanasov et~al.(2021)Atanasov, Bordelon, and Pehlevan]{atanasov2021neuralnetworkskernellearners}
+Alexander Atanasov, Blake Bordelon, and Cengiz Pehlevan.
+\newblock Neural networks as kernel learners: The silent alignment effect, 2021.
+\newblock URL \url{https://arxiv.org/abs/2111.00034}.
+
+\bibitem[Bach(2023)]{bach2023highdimensionalanalysisdoubledescent}
+Francis Bach.
+\newblock High-dimensional analysis of double descent for linear regression with random projections, 2023.
+\newblock URL \url{https://arxiv.org/abs/2303.01372}.
+
+\bibitem[Gu et~al.(2024)Gu, Zheng, and Aste]{gu2024unravelingenigmadoubledescent}
+Yufei Gu, Xiaoqing Zheng, and Tomaso Aste.
+\newblock Unraveling the enigma of double descent: An in-depth analysis through the lens of learned feature space, 2024.
+\newblock URL \url{https://arxiv.org/abs/2310.13572}.
+
+\bibitem[Han et~al.(2025)Han, Huang, Zhou, Niu, Chen, Yan, Takeda, and Suzuki]{pmlr-v267-han25c}
+Andi Han, Wei Huang, Zhanpeng Zhou, Gang Niu, Wuyang Chen, Junchi Yan, Akiko Takeda, and Taiji Suzuki.
+\newblock On the role of label noise in the feature learning process.
+\newblock In Aarti Singh, Maryam Fazel, Daniel Hsu, Simon Lacoste-Julien, Felix Berkenkamp, Tegan Maharaj, Kiri Wagstaff, and Jerry Zhu (eds.), \emph{Proceedings of the 42nd International Conference on Machine Learning}, volume 267 of \emph{Proceedings of Machine Learning Research}, pp.\  21733--21773. PMLR, 13--19 Jul 2025.
+\newblock URL \url{https://proceedings.mlr.press/v267/han25c.html}.
+
+\bibitem[KUBO \& IIDA(2025)KUBO and IIDA]{TomokiKUBO2025}
+Tomoki KUBO and Yusuke IIDA.
+\newblock Analysis of learning process differences for clean and noisy labels in epoch-wise double descent.
+\newblock \emph{Proceedings of the Annual Conference of JSAI}, JSAI2025:\penalty0 3L5GS105--3L5GS105, 2025.
+\newblock \doi{10.11517/pjsai.JSAI2025.0_3L5GS105}.
+
+\bibitem[Lewkowycz \& Gur-Ari(2020)Lewkowycz and Gur-Ari]{Lewkowycz2020}
+Aitor Lewkowycz and Guy Gur-Ari.
+\newblock On the training dynamics of deep networks with l2 regularization.
+\newblock 2020.
+\newblock URL \url{https://arxiv.org/abs/2006.08643}.
+
+\bibitem[Litman \& Guo(2026)Litman and Guo]{litman2026theorygeneralizationdeeplearning}
+Elon Litman and Gabe Guo.
+\newblock A theory of generalization in deep learning, 2026.
+\newblock URL \url{https://arxiv.org/abs/2605.01172}.
+
+\bibitem[Repasky et~al.(2023)Repasky, Cheng, and Xie]{repasky2023neuralsteincriticsstaged}
+Matthew Repasky, Xiuyuan Cheng, and Yao Xie.
+\newblock Neural stein critics with staged $l^2$-regularization, 2023.
+\newblock URL \url{https://arxiv.org/abs/2207.03406}.
+
+\bibitem[Schaeffer et~al.(2023)Schaeffer, Khona, Robertson, Boopathy, Pistunova, Rocks, Fiete, and Koyejo]{schaeffer2023doubledescentdemystifiedidentifying}
+Rylan Schaeffer, Mikail Khona, Zachary Robertson, Akhilan Boopathy, Kateryna Pistunova, Jason~W. Rocks, Ila~Rani Fiete, and Oluwasanmi Koyejo.
+\newblock Double descent demystified: Identifying, interpreting \& ablating the sources of a deep learning puzzle, 2023.
+\newblock URL \url{https://arxiv.org/abs/2303.14151}.
+
+\bibitem[Singh et~al.(2022)Singh, Lucchi, Hofmann, and Schölkopf]{singh2022phenomenologydoubledescentfinitewidth}
+Sidak~Pal Singh, Aurelien Lucchi, Thomas Hofmann, and Bernhard Schölkopf.
+\newblock Phenomenology of double descent in finite-width neural networks, 2022.
+\newblock URL \url{https://arxiv.org/abs/2203.07337}.
 
 \end{thebibliography}

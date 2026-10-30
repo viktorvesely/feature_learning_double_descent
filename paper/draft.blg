@@ -1,0 +1,46 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: draft.aux
+The style file: tmlr-template/tmlr.bst
+Database file #1: tmlr-template/tmlr.bib
+You've used 5 entries,
+            2773 wiz_defined-function locations,
+            624 strings with 6133 characters,
+and the built_in function-call counts, 2682 in all, are:
+= -- 222
+> -- 201
+< -- 4
++ -- 67
+- -- 62
+* -- 225
+:= -- 413
+add.period$ -- 17
+call.type$ -- 5
+change.case$ -- 33
+chr.to.int$ -- 5
+cite$ -- 10
+duplicate$ -- 100
+empty$ -- 193
+format.name$ -- 69
+if$ -- 560
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 1
+newline$ -- 34
+num.names$ -- 22
+pop$ -- 78
+preamble$ -- 1
+purify$ -- 28
+quote$ -- 0
+skip$ -- 102
+stack$ -- 0
+substring$ -- 58
+swap$ -- 22
+text.length$ -- 2
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 55
+warning$ -- 0
+while$ -- 19
+width$ -- 0
+write$ -- 72
